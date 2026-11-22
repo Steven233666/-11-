@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}登录 · FlowerVision{% endblock %}
+{% block bodyclass %}login-body{% endblock %}
+{% block navclass %}solid{% endblock %}
+
+{% block content %}
+<main style="padding-top:0; min-height:100vh;">
+  <div class="login-page" style="min-height:100vh;">
+    <section class="login-visual">
+      <p class="kicker reveal">Flora season — MMXXVI</p>
+      <h1 class="display reveal d1">Flora<br>Season</h1>
+      <p class="hero-sub reveal d2">把一朵花，认得清清楚楚。<br>五种常见花卉，一张照片，三次概率。</p>
+
+      <div class="login-facts reveal d3">
+        <div class="f">Classes<b>5</b></div>
+        <div class="f">Images<b>750</b></div>
+        <div class="f">Accuracy<b>90.67%</b></div>
+        <div class="f">Inference<b>20 ms</b></div>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <div class="login-card">
+        <p class="kicker">Member access · 登录</p>
+        <h1>Enter the gallery</h1>
+        <p class="lead">输入账号，进入识别台或管理端。</p>
+
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+        <form method="post">
+          <div class="field">
+            <label for="username">Username · 用户名</label>
+            <input id="username" name="username" autocomplete="username"
+                   value="{{ request.form.get('username','') }}" placeholder="admin" autofocus>
+          </div>
+          <div class="field">
+            <label for="password">Password · 密码</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" placeholder="••••••">
+          </div>
+          <button class="btn-ink" type="submit">进入系统 →</button>
+        </form>
+
+        <p class="login-hint">管理员 admin / 123456<br>普通用户 user / 123456</p>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

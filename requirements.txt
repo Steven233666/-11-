@@ -1,0 +1,15 @@
+# 花卉图像分类项目依赖
+# 安装：
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+# 有 NVIDIA 显卡时，torch/torchvision 换成 pytorch.org 上对应 CUDA 版本的命令
+
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+requests>=2.31.0
+tqdm>=4.66.0
+flask>=3.0.0

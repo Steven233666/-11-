@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}识别 · FlowerVision{% endblock %}
+
+{% block content %}
+<main>
+  <div class="shell">
+
+    <!-- 大标题 -->
+    <section class="hero">
+      <p class="kicker reveal">You are looking at · 单张花卉识别</p>
+      <div class="hero-head">
+        <h1 class="display reveal d1">Flora&nbsp;Season</h1>
+        <div class="hero-side reveal d2">
+          <button class="underline-link" data-drawer>最近识别 →</button>
+          <span class="meta-line">{{ nav_model.file if nav_model else '—' }} · {{ device }}</span>
+        </div>
+      </div>
+      <p class="hero-sub reveal d2">五种常见花卉，一张照片，三次概率。<br>上传、拖拽，或者直接打开摄像头。</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- 产品页式两栏 -->
+    <section class="sheet-grid" style="margin-top:clamp(26px,4vw,44px)">
+
+      <!-- 左：装裱预览 -->
+      <div class="sticky-side reveal d1">
+        <div class="mat">
+          <div class="frame-img ph" id="previewBlank">
+            No image selected<br><span style="opacity:.7">上传或拍照后，画面会装裱在这里</span>
+          </div>
+          <img class="frame-img" id="previewImg" alt="待识别图片" style="display:none">
+        </div>
+        <div class="frame-meta">
+          <span>1 / 1</span>
+          <span class="right"><span>128 × 128 PX</span><span>{{ nav_classes }} CLASSES</span></span>
+        </div>
+      </div>
+
+      <!-- 右：识别面板 -->
+      <div class="reveal d2">
+        <p class="kicker">Identify · 识别</p>
+        <h2 class="title-xl">把它认出来</h2>
+        <p class="artist">One photograph · Top-3 probabilities</p>
+        <p class="desc">
+          模型会给出最可能的三种花卉及各自的置信度。照片越干净、主体越完整，结果越稳；
+          低于 <em>60%</em> 时建议换一个角度或补一张光更亮的照片。
+        </p>
+
+        <!-- 图源选择 -->
+        <div class="group">
+          <div class="group-label">Source · 图片来源 <span id="srcLabel">本地上传</span></div>
+          <div class="chips">
+            <button type="button" class="chip on" data-mode="upload">上传图片</button>
+            <button type="button" class="chip" data-mode="camera">浏览器摄像头</button>
+          </div>
+        </div>
+
+        <!-- 上传区 -->
+        <div id="uploadBox">
+          <div class="drop-zone" id="dropZone">
+            <div class="big">Drop a photograph here</div>
+            <small>点击选择，或把图片拖进来 · JPG / PNG / BMP / WEBP · ≤ 10MB</small>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+        </div>
+
+        <!-- 摄像头 -->
+        <div class="camera-box" id="cameraBox" hidden>
+          <video id="video" autoplay playsinline muted></video>
+          <div class="camera-actions">
+            <button type="button" class="btn-outline" id="btnOpenCam">打开摄像头</button>
+            <button type="button" class="btn-ink" id="btnShot" style="flex:1">拍照并识别 →</button>
+            <button type="button" class="btn-outline" id="btnCloseCam">关闭</button>
+          </div>
+          <p class="meta-line" style="margin-top:10px">需要浏览器授权；127.0.0.1 属于安全上下文，无需 HTTPS。</p>
+        </div>
+
+        <!-- 结果 -->
+        <div class="result-empty" id="emptyBox" style="margin-top:20px">
+          No identification yet<br>选择一张图，点「开始识别」
+        </div>
+
+        <div class="result" id="resultBox" style="margin-top:20px">
+          <p class="kicker">Identified as · 识别结果</p>
+          <h2 class="result-label" id="rLabel">—</h2>
+          <div class="result-conf">
+            <span class="num" id="rConf">—</span>
+            <span class="of">Confidence · 置信度</span>
+          </div>
+          <p class="result-note" id="rNote" hidden>置信度偏低 · 建议换角度重拍</p>
+          <div class="bars" id="rBars"></div>
+          <p class="meta-line" id="rMeta" style="margin-top:16px"></p>
+        </div>
+
+        <!-- 操作行 -->
+        <div class="buy-row">
+          <div class="qty" style="justify-content:center;letter-spacing:.1em">TOP 3</div>
+          <button class="btn-ink" id="btnPredict" disabled>开始识别 →</button>
+        </div>
+
+        <!-- 说明手风琴 -->
+        <div class="acc">
+          <div class="acc-row">
+            <button class="acc-head" type="button">识别说明<span class="plus">+</span></button>
+            <div class="acc-body"><div><p>输入图片会被缩放为 128 × 128 并做 ImageNet 标准化，单张前向推理约 20 ms（本机 CPU）。模型输出 softmax 概率，取最高的三类展示。</p></div></div>
+          </div>
+          <div class="acc-row">
+            <button class="acc-head" type="button">模型与数据<span class="plus">+</span></button>
+            <div class="acc-body"><div><p>当前使用 {{ nav_model.name if nav_model else '模型' }}{% if nav_model and nav_model.acc %}（测试准确率 {{ '%.2f' % (nav_model.acc * 100 if nav_model.acc <= 1 else nav_model.acc) }}%）{% endif %}；训练与测试共 750 张、5 类，每类 120 训练 / 30 测试。系统在 ResNet18、教师 CNN、蒸馏学生三套权重中自动择优。</p></div></div>
+          </div>
+          <div class="acc-row">
+            <button class="acc-head" type="button">隐私与留存<span class="plus">+</span></button>
+            <div class="acc-body"><div><p>所有计算都在本机完成，图片不会离开这台电脑。原图不会保存，只在 <em>web/static/uploads/</em> 留一张 260 px 缩略图用于识别历史，可随时删除该目录清空。</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 五类花卉卡片 -->
+  <section class="band">
+    <div class="shell">
+      <h2>Get the collection — 五个可识别类别</h2>
+      {% set en = {'兰花':'Orchid','向日葵':'Sunflower','玫瑰':'Rose','菊花':'Chrysanthemum','郁金香':'Tulip'} %}
+      <div class="cards">
+        {% for c in class_names %}
+        <a class="card-print" href="#" title="{{ c }}">
+          <div class="thumb">
+            <img class="frame-img" src="{{ url_for('static', filename='demo/' ~ c ~ '.jpg') }}" alt="{{ c }}">
+          </div>
+          <div class="name">{{ c }}</div>
+          <div class="sub">{{ en.get(c, 'Flower') }}</div>
+          <div class="num">150 IMAGES · CLASS {{ '%02d' % loop.index }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <div class="shell">
+    <footer class="foot">
+      <span>FlowerVision · 花卉图像分类识别系统</span>
+      <span>LOCAL DEMO · NO DATA LEAVES THIS MACHINE</span>
+    </footer>
+  </div>
+</main>
+{% endblock %}
+
+{% block drawer %}
+<div class="drawer-veil" id="veil"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <p class="kicker" style="margin-bottom:6px">Your history</p>
+      <h2>识别历史</h2>
+    </div>
+    <button class="x" id="drawerClose" aria-label="关闭">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <div class="drawer-empty">Your history is empty<br>识别一张，记录会留在这里</div>
+  </div>
+  <div class="drawer-foot">
+    <div class="sum-row"><span>Total · 累计识别</span><b id="drawerTotal">0</b></div>
+    <button class="btn-ink" id="drawerAction" style="width:100%">继续识别 →</button>
+  </div>
+</aside>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var fileInput = $('fileInput'), dropZone = $('dropZone');
+  var previewImg = $('previewImg'), previewBlank = $('previewBlank');
+  var btnPredict = $('btnPredict');
+  var emptyBox = $('emptyBox'), resultBox = $('resultBox');
+  var uploaded = null, stream = null;
+
+  /* ---------- 抽屉 ---------- */
+  var drawer = $('drawer'), veil = $('veil'), body = document.body;
+  function openDrawer() {
+    drawer.classList.add('on'); veil.classList.add('on');
+    drawer.setAttribute('aria-hidden', 'false');
+    body.classList.add('no-scroll');
+  }
+  function closeDrawer() {
+    drawer.classList.remove('on'); veil.classList.remove('on');
+    drawer.setAttribute('aria-hidden', 'true');
+    body.classList.remove('no-scroll');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-drawer]'), function (el) {
+    el.addEventListener('click', function (e) { e.preventDefault(); loadHistory(); openDrawer(); });
+  });
+  $('drawerClose').addEventListener('click', closeDrawer);
+  veil.addEventListener('click', closeDrawer);
+  $('drawerAction').addEventListener('click', function () {
+    closeDrawer(); dropZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDrawer();
+  });
+
+  /* ---------- 模式切换 ---------- */
+  var chips = document.querySelectorAll('.chip[data-mode]');
+  Array.prototype.forEach.call(chips, function (chip) {
+    chip.addEventListener('click', function () {
+      Array.prototype.forEach.call(chips, function (c) { c.classList.remove('on'); });
+      chip.classList.add('on');
+      var mode = chip.dataset.mode;
+      $('srcLabel').textContent = mode === 'upload' ? '本地上传' : '浏览器摄像头';
+      $('uploadBox').hidden = mode !== 'upload';
+      $('cameraBox').hidden = mode !== 'camera';
+      if (mode !== 'camera') stopCamera();
+    });
+  });
+
+  /* ---------- 上传 ---------- */
+  dropZone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function (e) { if (e.target.files[0]) takeFile(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    dropZone.addEventListener(t, function (e) { e.preventDefault(); dropZone.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    dropZone.addEventListener(t, function (e) { e.preventDefault(); dropZone.classList.remove('over'); });
+  });
+  dropZone.addEventListener('drop', function (e) {
+    var f = e.dataTransfer.files[0];
+    if (f) takeFile(f);
+  });
+
+  function takeFile(f) {
+    if (!f.type || f.type.indexOf('image/') !== 0) { alert('请选择图片文件'); return; }
+    if (f.size > 10 * 1024 * 1024) { alert('图片超过 10MB，请压缩后再试'); return; }
+    uploaded = f;
+    previewImg.src = URL.createObjectURL(f);
+    previewImg.style.display = 'block';
+    previewBlank.style.display = 'none';
+    btnPredict.disabled = false;
+  }
+
+  /* ---------- 摄像头 ---------- */
+  function stopCamera() {
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+  }
+  $('btnOpenCam').addEventListener('click', async function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('当前浏览器不支持调用摄像头，请改用上传图片'); return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      $('video').srcObject = stream;
+    } catch (err) {
+      alert('无法打开摄像头：' + (err && err.message ? err.message : '权限被拒绝') + '\n可改用上传图片。');
+    }
+  });
+  $('btnCloseCam').addEventListener('click', stopCamera);
+  $('btnShot').addEventListener('click', function () {
+    var video = $('video');
+    if (!video.videoWidth) { alert('摄像头还没准备好，稍等一下'); return; }
+    var cv = document.createElement('canvas');
+    cv.width = video.videoWidth; cv.height = video.videoHeight;
+    cv.getContext('2d').drawImage(video, 0, 0);
+    cv.toBlob(function (blob) {
+      if (!blob) return;
+      takeFile(new File([blob], 'camera.jpg', { type: 'image/jpeg' }));
+      predict(blob);
+    }, 'image/jpeg', 0.92);
+  });
+
+  /* ---------- 识别 ---------- */
+  btnPredict.addEventListener('click', function () { if (uploaded) predict(uploaded); });
+
+  function predict(blob) {
+    var label = btnPredict.textContent;
+    btnPredict.disabled = true;
+    btnPredict.textContent = '识别中…';
+    var fd = new FormData();
+    fd.append('image', blob, 'upload.jpg');
+    fetch('/api/predict', { method: 'POST', body: fd })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok || !d.ok) throw new Error(d.error || '识别失败'); return d; }); })
+      .then(function (d) { render(d); loadHistory(); })
+      .catch(function (e) { alert(e.message || '网络请求失败'); })
+      .finally(function () { btnPredict.textContent = label; btnPredict.disabled = !uploaded; });
+  }
+
+  function render(d) {
+    emptyBox.style.display = 'none';
+    resultBox.classList.add('on');
+    $('rLabel').textContent = d.label;
+    $('rConf').textContent = d.confidence.toFixed(2) + '%';
+    $('rNote').hidden = d.confidence >= 60;
+    $('rMeta').textContent = 'ELAPSED ' + d.elapsed_ms + ' MS · MODEL ' + d.model;
+
+    $('rBars').innerHTML = d.top.map(function (t, i) {
+      return '<div class="bar-row' + (i === 0 ? ' top1' : '') + '">' +
+        '<div class="top"><b>' + t.label + '</b><span>' + t.confidence.toFixed(2) + '%</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" data-w="' + Math.max(t.confidence, 2) + '"></div></div>' +
+        '</div>';
+    }).join('');
+
+    requestAnimationFrame(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.bar-fill'), function (el) {
+        el.style.width = el.dataset.w + '%';
+      });
+    });
+  }
+
+  /* ---------- 历史 ---------- */
+  function loadHistory() {
+    fetch('/api/history').then(function (r) { return r.json(); }).then(function (d) {
+      var badge = $('bagBadge');
+      badge.textContent = d.total;
+      badge.hidden = d.total === 0;
+      $('drawerTotal').textContent = d.total;
+      var box = $('drawerBody');
+      if (!d.items.length) {
+        box.innerHTML = '<div class="drawer-empty">Your history is empty<br>识别一张，记录会留在这里</div>';
+        return;
+      }
+      box.innerHTML = d.items.map(function (r, i) {
+        return '<div class="d-item" style="animation-delay:' + (i * 40) + 'ms">' +
+          '<img class="thumb" src="/static/' + r.image_path + '" alt="">' +
+          '<div class="txt">' +
+            '<div class="t1">' + r.label + '</div>' +
+            '<div class="t3">' + r.ts.slice(5) + ' · ' + r.elapsed_ms + ' MS</div>' +
+          '</div>' +
+          '<div class="conf">' + r.confidence.toFixed(1) + '%</div>' +
+        '</div>';
+      }).join('');
+    }).catch(function () {});
+  }
+  loadHistory();
+
+  /* ---------- 手风琴 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.acc-head'), function (h) {
+    h.addEventListener('click', function () {
+      var row = h.parentElement;
+      row.classList.toggle('open');
+      h.setAttribute('aria-expanded', row.classList.contains('open') ? 'true' : 'false');
+    });
+  });
+})();
+</script>
+{% endblock %}

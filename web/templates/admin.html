@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}管理端 · FlowerVision{% endblock %}
+
+{% block content %}
+<main>
+  <div class="shell">
+
+    <section class="hero">
+      <p class="kicker reveal">System overview · 管理端</p>
+      <div class="hero-head">
+        <h1 class="display reveal d1">The&nbsp;Archive</h1>
+        <div class="hero-side reveal d2">
+          <a class="underline-link" href="{{ url_for('user_home') }}">返回识别台 →</a>
+          <span class="meta-line">SQLITE · WEB_DATA.DB · {{ dataset|sum(attribute='raw') }} RAW IMAGES</span>
+        </div>
+      </div>
+      <p class="hero-sub reveal d2">模型、数据与每一条识别记录。<br>管理端只对 admin 账号开放。</p>
+    </section>
+
+    <hr class="rule">
+
+    <!-- 指标 -->
+    <div class="kpis reveal d2">
+      <div class="kpi"><div class="num">{{ total }}</div><div class="name">Total · 累计识别</div></div>
+      <div class="kpi"><div class="num">{{ today }}</div><div class="name">Today · 今日识别</div></div>
+      <div class="kpi"><div class="num">{{ avg_ms }}<small>MS</small></div><div class="name">Latency · 平均耗时</div></div>
+      <div class="kpi"><div class="num">{{ models|selectattr('exists')|list|length }}<small>/ {{ models|length }}</small></div><div class="name">Models · 可用模型</div></div>
+      <div class="kpi"><div class="num">{{ users }}</div><div class="name">Accounts · 账号数</div></div>
+    </div>
+
+    <!-- 模型 -->
+    <section class="panel reveal">
+      <div class="panel-head">
+        <h2>Model versions — 模型与准确率</h2>
+        <span class="tag on">AUTO SELECT</span>
+      </div>
+      <p class="panel-sub">启动时自动选择准确率最高的可用权重（当前优先 ResNet18）。三套权重都保留在 models/ 下，可随时替换做对比。</p>
+      <table class="data-table">
+        <thead>
+          <tr><th>Model</th><th>Weight file</th><th>Arch</th><th>Test acc</th><th>Epochs</th><th>Size</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for m in models %}
+          <tr>
+            <td class="strong">{{ m.name }}<br><span class="tag">{{ m.tag }}</span></td>
+            <td class="mono">{{ m.file }}</td>
+            <td class="mono">{{ m.arch or '—' }}</td>
+            <td class="acc">{% if m.acc %}{{ '%.2f' % (m.acc * 100 if m.acc <= 1 else m.acc) }}%{% else %}—{% endif %}</td>
+            <td class="mono">{{ m.epochs or '—' }}</td>
+            <td class="mono">{{ m.size_mb or '—' }}{% if m.size_mb %} MB{% endif %}</td>
+            <td>
+              {% if not m.exists %}<span class="tag warn">缺失</span>
+              {% elif m.active %}<span class="tag on">正在使用</span>
+              {% else %}<span class="tag">可用</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 数据集 + 分布 -->
+    <section class="panel split-2 reveal" style="margin-top:clamp(30px,5vw,52px)">
+      <div>
+        <div class="panel-head"><h2>Dataset — 数据集</h2></div>
+        <p class="panel-sub">爬虫采集后按 8:2 划分，每类 120 训练 / 30 测试。</p>
+        <table class="data-table">
+          <thead><tr><th>Class</th><th>Raw</th><th>Train</th><th>Test</th></tr></thead>
+          <tbody>
+            {% for d in dataset %}
+            <tr>
+              <td class="strong">{{ d.cls }}</td>
+              <td class="mono">{{ d.raw }}</td>
+              <td class="mono">{{ d.train }}</td>
+              <td class="mono">{{ d.test }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="meta-line" style="margin-top:14px">
+          合计 {{ dataset|sum(attribute='raw') }} 张 ·
+          {{ dataset|sum(attribute='train') }} 训练 /
+          {{ dataset|sum(attribute='test') }} 测试
+        </p>
+      </div>
+
+      <div>
+        <div class="panel-head"><h2>Output mix — 类别分布</h2></div>
+        <p class="panel-sub">按历史识别结果统计，可看出使用偏好与易混淆类别。</p>
+        {% if dist %}
+        <div class="dist">
+          {% for d in dist %}
+          <div class="dist-row">
+            <div class="n">{{ d.label }}</div>
+            <div class="t"><div class="f" data-w="{{ (d.c / max_c * 100)|round(1) }}"></div></div>
+            <div class="c">{{ d.c }} 次</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="result-empty">No records yet · 还没有识别记录</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- 日志 -->
+    <section class="panel reveal" style="margin-top:clamp(30px,5vw,52px)">
+      <div class="panel-head">
+        <h2>Recognition log — 识别日志</h2>
+        <span class="pill quiet">LAST 30</span>
+      </div>
+      <p class="panel-sub">最近 30 条记录，含账号、结果、置信度与耗时，可直接用于答辩演示与问题追溯。</p>
+      {% if history %}
+      <table class="data-table">
+        <thead>
+          <tr><th>Print</th><th>Time</th><th>Account</th><th>Result</th><th>Conf.</th><th>Latency</th></tr>
+        </thead>
+        <tbody>
+          {% for r in history %}
+          <tr>
+            <td><img src="/static/{{ r['image_path'] }}" alt=""></td>
+            <td class="mono">{{ r['ts'] }}</td>
+            <td class="mono">{{ r['username'] }}</td>
+            <td class="strong">{{ r['label'] }}</td>
+            <td class="mono">{{ '%.2f' % r['confidence'] }}%</td>
+            <td class="mono">{{ r['elapsed_ms'] }} MS</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="result-empty">No records yet · 还没有识别记录</div>
+      {% endif %}
+    </section>
+
+    <footer class="foot">
+      <span>FlowerVision · 管理端</span>
+      <span>ADMIN ONLY · {{ '%.2f' % (models[0].acc * 100 if models[0].acc and models[0].acc <= 1 else (models[0].acc or 0)) }}% BEST ACCURACY</span>
+    </footer>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* 分布条入场动画 */
+requestAnimationFrame(function () {
+  Array.prototype.forEach.call(document.querySelectorAll('.dist .f'), function (el) {
+    el.style.width = el.dataset.w + '%';
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+# ---------- Python 运行环境 ----------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ---------- 模型权重（体积大，按需自行保留或放 Releases） ----------
+models/
+*.pth
+*.pt
+*.onnx
+
+# ---------- 数据集（爬虫可重新生成，不入库） ----------
+plant_images/
+plant_images_split/
+
+# ---------- 运行产物 ----------
+logs/
+*.log
+web_data.db
+web/static/uploads/
+dashboards/
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 本地临时文件 ----------
+*.tmp
+*.bak
+~$*

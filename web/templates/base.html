@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FlowerVision — 花卉图像分类{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+
+<header class="nav {% block navclass %}{% endblock %}" id="nav">
+  <a class="logo" href="{{ url_for('root') }}">FlowerVision<span>Flora · 2026</span></a>
+
+  {% if session.get('user') %}
+  <nav class="links">
+    <a href="{{ url_for('user_home') }}">识别</a>
+    <button type="button" class="link-btn" data-drawer>识别历史</button>
+    {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('admin_home') }}">管理端</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  <div class="nav-right">
+    {% if nav_model %}
+      <span class="pill">
+        <span class="dot"></span>
+        {{ nav_model.name.split(' ')[0]|upper }}{% if nav_model.acc %} · {{ '%.2f' % (nav_model.acc * 100 if nav_model.acc <= 1 else nav_model.acc) }}%{% endif %}
+      </span>
+    {% endif %}
+    <span class="pill quiet">{{ nav_classes }} CLASSES</span>
+
+    {% if session.get('user') %}
+      {% if session.get('role') == 'admin' %}
+        <span class="pill quiet">ADMIN</span>
+      {% else %}
+        <button class="icon-btn" id="bagBtn" aria-label="识别历史" data-drawer>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9.5 8V6.4a2.5 2.5 0 0 1 5 0V8"/>
+          </svg>
+          <span class="badge" id="bagBadge" {% if not nav_total %}hidden{% endif %}>{{ nav_total }}</span>
+        </button>
+      {% endif %}
+      <a class="icon-btn" href="{{ url_for('logout') }}" aria-label="退出登录" title="退出登录">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 5h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h9"/>
+        </svg>
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+{% block drawer %}{% endblock %}
+
+{% block scripts %}{% endblock %}
+
+<script>
+/* 通用于所有页面：滚动时导航加底色 */
+(function () {
+  var nav = document.getElementById('nav');
+  if (!nav) return;
+  var hasSolid = nav.classList.contains('solid');
+  function onScroll() {
+    if (hasSolid) return;
+    nav.classList.toggle('scrolled', window.scrollY > 8);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>
